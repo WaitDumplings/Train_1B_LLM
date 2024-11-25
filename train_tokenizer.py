@@ -6,7 +6,7 @@ from tokenizers import decoders, Regex
 from tokenizers.models import BPE
 from tokenizers.trainers import BpeTrainer
 from transformers import PreTrainedTokenizerFast
-
+import json
 
 def list_files(root_dir, sub_dirs, filter_keyword='train', sampling_ratio=1.0):
     """
@@ -56,7 +56,7 @@ def count_word_occurrences(word, root_dir, sub_dirs):
     return word_counts
 
 
-def train_bpe_tokenizer(output_dir, data_dir, sub_dirs, vocab_size=32000, sampling_ratio=0.3):
+def train_bpe_tokenizer(output_dir, data_dir, sub_dirs, vocab_size=32000, limit_alphabet = 2000, sampling_ratio=0.3):
     """
     Train a BPE tokenizer using target directories.
 
@@ -79,7 +79,8 @@ def train_bpe_tokenizer(output_dir, data_dir, sub_dirs, vocab_size=32000, sampli
     tokenizer.decoder = decoders.Sequence([decoders.ByteLevel()])
     trainer = BpeTrainer(
         special_tokens=["<unk>", "<s>", "</s>"],
-        vocab_size=vocab_size,
+        vocab_size=vocab_size - 256,
+        limit_alphabet=limit_alphabet,
         initial_alphabet=pre_tokenizers.ByteLevel().alphabet(),
     )
 
@@ -89,12 +90,35 @@ def train_bpe_tokenizer(output_dir, data_dir, sub_dirs, vocab_size=32000, sampli
 
     # Train tokenizer
     tokenizer.train(files=training_files, trainer=trainer)
-    save_path = os.path.join(output_dir, 'tokenizer.json')
+    save_path = os.path.join(output_dir, 'tokenizer_raw.json')
 
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
     tokenizer.save(save_path)
+
+    with open(save_path, 'r') as f:
+        x = json.load(f)
+        new_vocab = {}
+        new_vocab['<unk>'] = 0
+        new_vocab['<s>'] = 1
+        new_vocab['</s>'] = 2
+
+        for i in range(256):
+            hexn = hex(i)[2:].upper()
+            s = f"<0x{hexn:>02s}>"
+            new_vocab[s] = i + 3
+
+        for k, v in x['model']['vocab'].items():
+            if k not in ['<unk>', '<s>', '</s>']:
+                new_vocab[k] = v + 256
+
+        x['model']['vocab'] = new_vocab
+    
+    new_path = os.path.join(output_dir, "tokenizer.json")
+    with open(new_path, 'w') as f:
+        json.dump(x, f, indent=2, ensure_ascii=False)
+
     print(f"Tokenizer saved to {save_path}")
 
 
@@ -136,7 +160,7 @@ if __name__ == "__main__":
     #     print(f"{directory}: {count} occurrences of 'the'")
 
     # Step 1: Train BPE tokenizer
-    # train_bpe_tokenizer(output_dir, data_dir, sub_dirs, vocab_size=32000, sampling_ratio=1.0)
+    train_bpe_tokenizer(output_dir, data_dir, sub_dirs, vocab_size=32000, sampling_ratio=1.0)
 
     # Step 2: Validate BPE tokenizer
     test_texts = [
