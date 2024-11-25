@@ -90,11 +90,15 @@ def train_bpe_tokenizer(output_dir, data_dir, sub_dirs, vocab_size=32000, sampli
     # Train tokenizer
     tokenizer.train(files=training_files, trainer=trainer)
     save_path = os.path.join(output_dir, 'tokenizer.json')
+
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+
     tokenizer.save(save_path)
     print(f"Tokenizer saved to {save_path}")
 
 
-def validate_bpe_tokenizer(output_dir, tokenizer_dir, tokenizer_file, sample_texts):
+def validate_bpe_tokenizer(tokenizer_dir, tokenizer_file, sample_texts):
     """
     Validate a trained BPE tokenizer.
 
@@ -104,7 +108,7 @@ def validate_bpe_tokenizer(output_dir, tokenizer_dir, tokenizer_file, sample_tex
         tokenizer_file (str): Tokenizer file name.
         sample_texts (list): List of texts to tokenize and decode.
     """
-    tokenizer_path = os.path.join(output_dir, tokenizer_dir, tokenizer_file)
+    tokenizer_path = os.path.join(tokenizer_dir, tokenizer_file)
     tokenizer = PreTrainedTokenizerFast(
         tokenizer_file=tokenizer_path,
         eos_token='</s>',
@@ -120,23 +124,23 @@ def validate_bpe_tokenizer(output_dir, tokenizer_dir, tokenizer_file, sample_tex
 
 if __name__ == "__main__":
     # Configuration
-    output_dir = ".."
-    tokenizer_dir = "tokenizer"
+    output_dir = "./tokenizer"
+    tokenizer_dir = "./tokenizer"
     tokenizer_file = "tokenizer.json"
-    data_dir = "../dataset"
+    data_dir = "./datasets"
     sub_dirs = ['english_wikipedia', 'english_gutenberg', 'english_books3', 'english_c4']
 
-    # Step 1: Count word occurrences
-    word_occurrences = count_word_occurrences('the', data_dir, sub_dirs)
-    for directory, count in word_occurrences.items():
-        print(f"{directory}: {count} occurrences of 'the'")
+    # Step 0: Count word occurrences (to checkout if overflow)
+    # word_occurrences = count_word_occurrences('the', data_dir, sub_dirs)
+    # for directory, count in word_occurrences.items():
+    #     print(f"{directory}: {count} occurrences of 'the'")
 
-    # Step 2: Train BPE tokenizer
-    train_bpe_tokenizer(output_dir, data_dir, sub_dirs, vocab_size=32000, sampling_ratio=0.35)
+    # Step 1: Train BPE tokenizer
+    # train_bpe_tokenizer(output_dir, data_dir, sub_dirs, vocab_size=32000, sampling_ratio=1.0)
 
-    # Step 3: Validate BPE tokenizer
+    # Step 2: Validate BPE tokenizer
     test_texts = [
         "Let's train a 1 billion Large Lanugage Model!",
         "This is the first step of training a tokenizer."
     ]
-    validate_bpe_tokenizer(output_dir, tokenizer_dir, tokenizer_file, test_texts)
+    validate_bpe_tokenizer(tokenizer_dir, tokenizer_file, test_texts)

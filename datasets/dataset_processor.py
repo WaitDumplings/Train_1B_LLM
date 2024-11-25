@@ -126,12 +126,12 @@ def detect_en(x, gutenberg_list):
 
 
 if __name__ == "__main__":
-    root = "../dataset"
-
+    root = "./"
+ 
     # Process Wikipedia dataset
     convert_parquet_to_txt(
         root,
-        "wikipedia/parquet",
+        "wikipedia",
         "english_wikipedia",
         column_name="text",
         process_func=lambda x: x + "\r\n\r\n\r\n",
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     # Process Gutenberg dataset
     convert_parquet_to_txt(
         root,
-        "gutenberg/parquet",
+        "gutenberg_english",
         "english_gutenberg",
         column_name="TEXT",
         process_func=lambda book: "\r\n\r\n\r\n".join(
@@ -157,12 +157,12 @@ if __name__ == "__main__":
 
     # Filter and process Books3 dataset
     gutenberg_list = set()
-    for file in list_files_with_extension(os.path.join(root, "gutenberg/parquet"), ".parquet"):
-        books = pd.read_parquet(os.path.join(root, "gutenberg/parquet", file))
+    for file in list_files_with_extension(os.path.join(root, "gutenberg_english"), ".parquet"):
+        books = pd.read_parquet(os.path.join(root, "gutenberg_english", file))
         gutenberg_list.update(
             books["METADATA"].apply(lambda x: json.loads(x)["title"]).tolist()
         )
-    filter_books3(root, "books3/parquet", "english_books3", gutenberg_list)
+    filter_books3(root, "books3", "english_books3", gutenberg_list)
 
     # Process C4 dataset
     convert_c4_to_txt(root, "c4/en", "english_c4")
