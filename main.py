@@ -12,6 +12,22 @@ from torch.cuda.amp import autocast, GradScaler
 from transformers import PreTrainedTokenizerFast
 from dataloader import GPTDataset, RandSampler, DistRandSampler, FixCollater
 from multiprocessing import Process, Barrier
+import matplotlib.pyplot as plt
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="torch")
+
+
+# plot
+def plot_train_loss(train_loss):
+    plt.figure(figsize=(10, 6))
+    plt.plot(range(len(train_loss)), train_loss, label="Train Loss")
+    plt.xlabel("Iteration")
+    plt.ylabel("Loss")
+    plt.title("Training Loss Over Iterations")
+    plt.legend()
+    plt.grid()
+    plt.save("Train Loss.png")
+    plt.show()
 
 def get_lr(it, config):
     if it < config.warmup_iters:
@@ -66,7 +82,7 @@ def evaluate(valid_dataset, model, config, device, ptdtype, barrier):
                 input_ids, labels = data
                 input_ids = input_ids.to(device, non_blocking=True)
                 labels = labels.to(device, non_blocking=True)
-                with autocast(dtype=ptdtype):
+                with torch.amp.autocast("cuda", dtype=ptdtype):
                     _, loss = model(input_ids, labels)
                 loss_knt += loss.item()
                 loss_num += 1
@@ -79,6 +95,10 @@ def evaluate(valid_dataset, model, config, device, ptdtype, barrier):
 
 def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, config, arch, dtype, model_root, model_path, tokenizer_path, token_dump_path, data_root, data_dirs, need_prepare_first_dataset, flash=True):
     model_path = os.path.join(model_root, model_path)
+
+    if not os.path.exists(model_root):
+        os.mkdir(model_root)
+
     is_master = distributed == False or gpu == 0
     ptdtype = {'float32': torch.float32, 'bfloat16': torch.bfloat16, 'float16': torch.float16}[dtype]
 
@@ -113,7 +133,7 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
     if eval:
         evaluate(train_dataset, model, config, device, ptdtype, barrier)
         exit()
-    breakpoint()
+
     if is_master:
         print(config)
         for k, v in list(filter(lambda x: x[0][:2] != '__', inspect.getmembers(config))):
@@ -123,12 +143,11 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
         print()
 
     optimizer = model.configure_optimizers(config.weight_decay, config.learning_rate, (config.beta1, config.beta2), is_master)
-    scaler = GradScaler(enabled=(dtype == 'float16'))
+    scaler = torch.amp.GradScaler('cuda', enabled=(dtype == 'float16'))
 
     if is_master:
         print("number of total parameters: %.2fM" % (model.get_num_params()/1e6,))
         print(f"all train file nums: {len(train_dataset.files)}")
-
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[gpu])
 
@@ -143,6 +162,7 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
     accum_knt = 0
     loss_knt = 0
     loss_num = 0
+    train_loss = []
     st = time.time()
     for i, file in enumerate(train_dataset.files[trained_file_index+1:], trained_file_index+1):
         if is_master:
@@ -154,7 +174,7 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
         num_origin_samples = train_dataset.load_samples(token_dump_path)
         accum_tokens += len(train_dataset) * config.sequence_length / 1e6
         if is_master:
-            fnames = list(map(lambda x: x.split('/')[5].split('_')[1]+x.split('/')[6].split('.')[1].split('-')[0], file))
+            fnames = list(map(lambda x: x.split('/')[-1], file))
             print(f"processing {i}: {', '.join(fnames)}, "
                 f"origin: {num_origin_samples}, "
                 f"samples: {len(train_dataset)}, "
@@ -175,12 +195,13 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
             input_ids, labels = data
             input_ids = input_ids.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
-            with autocast(dtype=ptdtype):
+            with torch.amp.autocast("cuda", dtype=ptdtype):
                 _, loss = model(input_ids, labels)
                 loss /= config.gradient_accumulation_steps
             scaler.scale(loss).backward()
             accum_knt += 1
             loss_knt += loss.item()
+            train_loss.append(loss.item() / loss_num)
             if accum_knt % config.gradient_accumulation_steps == 0:
                 loss_num += 1
                 scaler.unscale_(optimizer)
@@ -191,13 +212,12 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
                 iter_num += 1
                 if iter_num % 100 == 0:
                     if is_master:
-                        print(f"step {iter_num}, loss {loss_knt/loss_num:.2f}, lr {lr:.6f}, consume {time.time()-st:.2f}s")
+                        print(f"step {iter_num}, loss {loss_knt/loss_num:.2f}, lr {lr:.6f}, consume {time.time()-st:.2f}s, train loss {loss}")
                     st = time.time()
                     loss_knt = 0
                     loss_num = 0
                 if iter_num >= config.max_iters:
                     break
-        
         if save_model and is_master:
             train_dataset.reset_samples()
             torch.save({'state_dict': model.state_dict(),
@@ -208,7 +228,9 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
                         }, model_path)
 
         if iter_num >= config.max_iters:
-            break            
+            break 
+
+    plot_train_loss(train_loss)
 
 if __name__ == "__main__":
     # 3200个样本, 4个1080ti并行46s，1个3090模型compile之后25s, flashAtt之后是23s
@@ -235,7 +257,7 @@ if __name__ == "__main__":
     # + instruct P3, MetaMathQA, atlas_math
     # + CoT, AlpacaCoT, CausalInstructions, CommonCrawl2023
 
-    config = RetrieverConfig_tiny()
+    config = RetrieverConfig_medium()
     gpu_num = config.gpu_num
     need_prepare_first_dataset = True
     load_dataset = False
@@ -245,12 +267,12 @@ if __name__ == "__main__":
     eval = False
     distributed = True if not eval else False
     arch = retriever
-    dtype = "bfloat16"
+    dtype = "float16"
     model_root = "./ckpt"
-    model_path = "./ckpt/retriever_medium.pth.tar"
+    model_path = "retriever_medium.pth.tar"
     model_backup_path = "ckpt/model_backup.pth.tar"
     tokenizer_path = "./tokenizer/tokenizer_v2_600G.json"
-    token_dump_path = "./ckpt/tokens.pkl"
+    token_dump_path = "./tokenizer/tokens.pkl"
     data_root = "./datasets"
     data_dirs = { 
         "english_c4": [1, '\n\n\n'], 
@@ -262,9 +284,7 @@ if __name__ == "__main__":
     if load_model: # backup origin model
         os.system(f"cp -f {os.path.join(model_root, model_path)} {os.path.join(model_root, model_backup_path)}")
 
-    distributed = False
     if distributed:
         mp.spawn(main, nprocs=gpu_num, args=(gpu_num, distributed, load_model, save_model, load_dataset, eval, config, arch, dtype, model_root, model_path, tokenizer_path, token_dump_path, data_root, data_dirs, need_prepare_first_dataset, flash))
     else:
-        breakpoint()
-        main(1, gpu_num, distributed, load_model, save_model, load_dataset, eval, config, arch, dtype, model_root, model_path, tokenizer_path, token_dump_path, data_root, data_dirs, need_prepare_first_dataset, flash)
+        main(0, gpu_num, distributed, load_model, save_model, load_dataset, eval, config, arch, dtype, model_root, model_path, tokenizer_path, token_dump_path, data_root, data_dirs, need_prepare_first_dataset, flash)        
