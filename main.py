@@ -4,7 +4,7 @@ import math
 import torch
 import inspect
 from model import retriever
-from configuration import RetrieverConfig_tiny, RetrieverConfig_small, RetrieverConfig_medium, RetrieverConfig_large
+from configuration import *
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.utils.data import DataLoader
@@ -26,7 +26,7 @@ def plot_train_loss(train_loss):
     plt.title("Training Loss Over Iterations")
     plt.legend()
     plt.grid()
-    plt.save("Train Loss.png")
+    plt.savefig("Train Loss.png")
     plt.show()
 
 def get_lr(it, config):
@@ -165,12 +165,12 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
     train_loss = []
     st = time.time()
     for i, file in enumerate(train_dataset.files[trained_file_index+1:], trained_file_index+1):
-        if is_master:
-            barrier.wait()
-            if distributed:
-                dist.barrier()
-        else:
-            dist.barrier()
+        # if is_master:
+        #     barrier.wait()
+        #     if distributed:
+        #         dist.barrier()
+        # else:
+        #     dist.barrier()
         num_origin_samples = train_dataset.load_samples(token_dump_path)
         accum_tokens += len(train_dataset) * config.sequence_length / 1e6
         if is_master:
@@ -201,9 +201,10 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
             scaler.scale(loss).backward()
             accum_knt += 1
             loss_knt += loss.item()
-            train_loss.append(loss.item() / loss_num)
+
             if accum_knt % config.gradient_accumulation_steps == 0:
                 loss_num += 1
+                train_loss.append(loss_knt / loss_num)
                 scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), config.grad_clip)
                 scaler.step(optimizer)
@@ -212,10 +213,11 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
                 iter_num += 1
                 if iter_num % 100 == 0:
                     if is_master:
-                        print(f"step {iter_num}, loss {loss_knt/loss_num:.2f}, lr {lr:.6f}, consume {time.time()-st:.2f}s, train loss {loss}")
+                        print(f"step {iter_num}, loss {loss_knt/loss_num:.2f}, lr {lr:.6f}, consume {time.time()-st:.2f}s")
                     st = time.time()
                     loss_knt = 0
                     loss_num = 0
+
                 if iter_num >= config.max_iters:
                     break
         if save_model and is_master:
@@ -257,7 +259,7 @@ if __name__ == "__main__":
     # + instruct P3, MetaMathQA, atlas_math
     # + CoT, AlpacaCoT, CausalInstructions, CommonCrawl2023
 
-    config = RetrieverConfig_medium()
+    config = RetrieverConfig_medium_GQA()
     gpu_num = config.gpu_num
     need_prepare_first_dataset = True
     load_dataset = False
@@ -266,6 +268,7 @@ if __name__ == "__main__":
     flash = True
     eval = False
     distributed = True if not eval else False
+    # distributed = False
     arch = retriever
     dtype = "float16"
     model_root = "./ckpt"

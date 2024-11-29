@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 from torch.cuda.amp import autocast
+import torch.nn.functional as F
 
 def make_causal_mask(bsz, tgt_len, device, dtype):
     mask = torch.full((tgt_len, tgt_len), torch.finfo(dtype).min, device=device)
@@ -77,7 +78,7 @@ class MLP(nn.Module):
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
 
     def forward(self, x):
-        gate_proj = nn.functional.silu(self.gate_proj(x))
+        gate_proj = F.silu(self.gate_proj(x))
         up_proj = self.up_proj(x)
         down_proj = self.down_proj(gate_proj * up_proj)
         return down_proj
@@ -85,15 +86,83 @@ class MLP(nn.Module):
 class Attention(nn.Module):
     def __init__(self, config, attention_mask, position_ids, flash=True):
         super(Attention, self).__init__()
+        self.flash = flash
+        self.hidden_size = config.hidden_size
+        self.kv_num_heads = config.kv_num_heads
+        self.query_num_heads = config.query_num_heads
+        self.head_dim = config.hidden_size // max(config.query_num_heads, config.kv_num_heads)
+        self.max_position_embeddings = config.sequence_length
+        self.attention_mask = attention_mask
+
+        self.q_proj = nn.Linear(config.hidden_size, self.query_num_heads * self.head_dim, bias=False)
+        self.k_proj = nn.Linear(config.hidden_size, self.kv_num_heads * self.head_dim, bias=False)
+        self.v_proj = nn.Linear(config.hidden_size, self.kv_num_heads * self.head_dim, bias=False)
+        self.o_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
+
+        self.position_ids = position_ids
+        self.rotary_emb = RotaryEmbedding(self.head_dim, max_position_embeddings=self.max_position_embeddings)
+
+    def forward(self, hidden_states, masks=None):
+        batch_size, seq_len, _ = hidden_states.size()
+
+        # Project hidden states to query, key, value
+        query = self.q_proj(hidden_states).view(batch_size, seq_len, self.query_num_heads, self.head_dim).transpose(1, 2)
+        key = self.k_proj(hidden_states).view(batch_size, seq_len, self.kv_num_heads, self.head_dim).transpose(1, 2)
+        value = self.v_proj(hidden_states).view(batch_size, seq_len, self.kv_num_heads, self.head_dim).transpose(1, 2)
+
+        # Apply rotary positional embeddings
+        position_ids = self.position_ids[:, :seq_len]
+        cos, sin = self.rotary_emb(value, seq_len=seq_len)
+        query, key = apply_rotary_pos_emb(query, key, cos, sin, position_ids)
+
+        # Determine grouping for multi-head attention
+        is_mha = self.query_num_heads >= self.kv_num_heads
+        group_size = self.query_num_heads // self.kv_num_heads if is_mha else self.kv_num_heads // self.query_num_heads
+        outputs = []
+
+        # Process each group
+        for i in range(group_size):
+            q_start, q_end = (i * self.kv_num_heads, (i + 1) * self.kv_num_heads) if is_mha else (0, self.query_num_heads)
+            k_start, k_end = (0, self.kv_num_heads) if is_mha else (i * self.query_num_heads, (i + 1) * self.query_num_heads)
+            
+            group_query = query[:, q_start:q_end, :, :]
+            group_key = key[:, k_start:k_end, :, :]
+            group_value = value[:, k_start:k_end, :, :]
+
+            # Add masks if provided
+            attn_mask = None
+            if masks is not None:
+                attn_mask = self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
+
+            # Compute scaled dot-product attention
+            if self.flash:
+                output = F.scaled_dot_product_attention(group_query, group_key, group_value, attn_mask=attn_mask, is_causal=True)
+            else:
+                attn_weights = torch.matmul(group_query, group_key.transpose(-2, -1)) / math.sqrt(self.head_dim)
+                if attn_mask is not None:
+                    attn_weights += attn_mask
+                attn_weights = F.softmax(attn_weights, dim=-1)
+                output = torch.matmul(attn_weights, group_value)
+            
+            outputs.append(output)
+
+        # Concatenate outputs and project back
+        output = torch.cat(outputs, dim=1).transpose(1, 2).contiguous()
+        output = output.reshape(batch_size, seq_len, self.hidden_size)
+        return self.o_proj(output)
+    
+class Attention2(nn.Module):
+    def __init__(self, config, attention_mask, position_ids, flash=True):
+        super(Attention, self).__init__()
         self.flash=flash
         self.hidden_size = config.hidden_size
         self.kv_num_heads = config.kv_num_heads
         self.query_num_heads = config.query_num_heads
-        self.head_dim = config.hidden_size // config.query_num_heads
+        self.head_dim = config.hidden_size // config.query_num_heads if config.query_num_heads >= config.kv_num_heads else config.hidden_size // config.kv_num_heads
         self.max_position_embeddings = config.sequence_length
         self.attention_mask = attention_mask
         
-        self.q_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
+        self.q_proj = nn.Linear(config.hidden_size, self.query_num_heads * self.head_dim, bias=False)
         self.k_proj = nn.Linear(config.hidden_size, self.kv_num_heads * self.head_dim, bias=False)
         self.v_proj = nn.Linear(config.hidden_size, self.kv_num_heads * self.head_dim, bias=False)
         self.o_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
@@ -114,42 +183,79 @@ class Attention(nn.Module):
         query, key = apply_rotary_pos_emb(query, key, cos, sin, position_ids)
 
         group_num = self.query_num_heads // self.kv_num_heads
-
         outputs = []
-        if self.flash:
-            if masks is None:
-                for i in range(group_num):
-                    head_start = i * self.kv_num_heads
-                    head_end = (i + 1) * self.kv_num_heads
-                    group_query = query[:, head_start:head_end,:, :]
-                    output = nn.functional.scaled_dot_product_attention(group_query, key, value, is_causal=True)
-                    outputs.append(output)
+
+        # MHA or MQA
+        if group_num > 0: 
+            if self.flash:
+                if masks is None:
+                    for i in range(group_num):
+                        head_start = i * self.kv_num_heads
+                        head_end = (i + 1) * self.kv_num_heads
+                        group_query = query[:, head_start:head_end,:, :]
+                        output = F.scaled_dot_product_attention(group_query, key, value, is_causal=True)
+                        outputs.append(output)
+                else:
+                    for i in range(group_num):
+                        head_start = i * self.kv_num_heads
+                        head_end = (i + 1) * self.kv_num_heads
+                        group_query = query[:, head_start:head_end,:, :]
+                        attn_mask = self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
+                        output = F.scaled_dot_product_attention(group_query, key, value, attn_mask=attn_mask)
+                        outputs.append(output)
             else:
                 for i in range(group_num):
                     head_start = i * self.kv_num_heads
                     head_end = (i + 1) * self.kv_num_heads
                     group_query = query[:, head_start:head_end,:, :]
-                    attn_mask = self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
-                    output = nn.functional.scaled_dot_product_attention(group_query, key, value, attn_mask=attn_mask)
+                    att = torch.matmul(group_query, key.transpose(2, 3)) / math.sqrt(self.head_dim)
+                    assert att.size() == (batch_size, self.num_heads, seq_len, seq_len), "Attention weights shape error"
+                    if masks is None:
+                        att = att + self.attention_mask[:batch_size, :, :seq_len, :seq_len]
+                    else:
+                        att = att + self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
+                    att = F.softmax(att, dim=-1)
+                    output = torch.matmul(att, value)
                     outputs.append(output)
         else:
-            for i in range(group_num):
-                head_start = i * self.kv_num_heads
-                head_end = (i + 1) * self.kv_num_heads
-                group_query = query[:, head_start:head_end,:, :]
-                att = torch.matmul(group_query, key.transpose(2, 3)) / math.sqrt(self.head_dim)
-                assert att.size() == (batch_size, self.num_heads, seq_len, seq_len), "Attention weights shape error"
+            # GQA
+            group_num = self.kv_num_heads // self.query_num_heads
+            if self.flash:
                 if masks is None:
-                    att = att + self.attention_mask[:batch_size, :, :seq_len, :seq_len]
+                    for i in range(group_num):
+                        head_start = i * self.query_num_heads
+                        head_end = (i + 1) * self.query_num_heads
+                        group_k = key[:, head_start:head_end,:, :]
+                        group_v = value[:, head_start:head_end,:, :]
+                        output = F.scaled_dot_product_attention(query, group_k, group_v, is_causal=True)
+                        outputs.append(output)
                 else:
-                    att = att + self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
-                att = nn.functional.softmax(att, dim=-1)
-                output = torch.matmul(att, value)
-                outputs.append(output)
+                    for i in range(group_num):
+                        head_start = i * self.query_num_heads
+                        head_end = (i + 1) * self.query_num_heads
+                        group_k = key[:, head_start:head_end,:, :]
+                        group_v = value[:, head_start:head_end,:, :]
+                        attn_mask = self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
+                        output = F.scaled_dot_product_attention(query, group_k, group_v, attn_mask=attn_mask)
+                        outputs.append(output)
+            else:
+                for i in range(group_num):
+                    head_start = i * self.query_num_heads
+                    head_end = (i + 1) * self.query_num_heads
+                    group_k = key[:, head_start:head_end,:, :]
+                    group_v = value[:, head_start:head_end,:, :]
+                    att = torch.matmul(query, group_k.transpose(2, 3)) / math.sqrt(self.head_dim)
+                    assert att.size() == (batch_size, self.query_num_heads, seq_len, seq_len), "Attention weights shape error"
+                    if masks is None:
+                        att = att + self.attention_mask[:batch_size, :, :seq_len, :seq_len]
+                    else:
+                        att = att + self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
+                    att = F.softmax(att, dim=-1)
+                    output = torch.matmul(att, group_v)
+                    outputs.append(output)
 
         output = torch.cat(outputs, dim=1)
         output = output.transpose(1, 2).contiguous()
-        assert output.size() == (batch_size, seq_len, self.query_num_heads, self.head_dim), "Attention output shape error"
         output = output.reshape(batch_size, seq_len, self.hidden_size)
 
         output = self.o_proj(output)
@@ -237,7 +343,7 @@ class Retriever(nn.Module):
         shift_logits = shift_logits.view(-1, self.vocab_size)
         shift_labels = labels[..., 1:].contiguous()
         shift_labels = shift_labels.view(-1).to(shift_logits.device)
-        loss = nn.functional.cross_entropy(shift_logits, shift_labels)
+        loss = F.cross_entropy(shift_logits, shift_labels)
 
         return logits, loss
     
@@ -264,7 +370,7 @@ class Retriever(nn.Module):
                 v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
                 logits[logits < v[:, [-1]]] = -float('Inf')
             
-            probs = nn.functional.softmax(logits, dim=-1)
+            probs = F.softmax(logits, dim=-1)
             id_next = torch.multinomial(probs, num_samples=1)
             input = torch.cat((input, id_next), dim=1)
             output_ids.append(int(id_next[0][0]))

@@ -1,0 +1,114 @@
+
+num decayed parameter tensors: 92, with 177,602,560 parameters
+num non-decayed parameter tensors: 27, with 27,648 parameters
+number of total parameters: 177.63M
+all train file nums: 29
+preparing first dataset file: c4-train.00197-of-01024.txt, the_pile_books3_minus_gutenberg-train-00066-of-00139.txt, 005-validation-train-00027-of-00039.txt, gutenberg_english-train-00018-of-00029.txt
+processing 0: c4-train.00197-of-01024.txt, the_pile_books3_minus_gutenberg-train-00066-of-00139.txt, 005-validation-train-00027-of-00039.txt, gutenberg_english-train-00018-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 176M, iter_num: 0
+finished, consume: 97s
+step 100, loss 8.74, lr 0.000030, consume 898.05s
+step 200, loss 6.53, lr 0.000060, consume 884.51s
+processing 1: c4-train.00714-of-01024.txt, the_pile_books3_minus_gutenberg-train-00134-of-00139.txt, 005-validation-train-00037-of-00039.txt, gutenberg_english-train-00010-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 352M, iter_num: 269
+step 300, loss 5.78, lr 0.000090, consume 888.90s
+step 400, loss 5.38, lr 0.000120, consume 884.30s
+step 500, loss 5.10, lr 0.000150, consume 887.68s
+processing 2: c4-train.00242-of-01024.txt, the_pile_books3_minus_gutenberg-train-00021-of-00139.txt, 005-validation-train-00033-of-00039.txt, gutenberg_english-train-00024-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 529M, iter_num: 538
+step 600, loss 4.86, lr 0.000180, consume 896.03s
+step 700, loss 4.65, lr 0.000210, consume 895.35s
+step 800, loss 4.50, lr 0.000240, consume 898.21s
+processing 3: c4-train.00169-of-01024.txt, the_pile_books3_minus_gutenberg-train-00046-of-00139.txt, 005-validation-train-00005-of-00039.txt, gutenberg_english-train-00003-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 705M, iter_num: 807
+step 900, loss 4.36, lr 0.000270, consume 894.12s
+step 1000, loss 4.21, lr 0.000300, consume 890.45s
+processing 4: c4-train.00559-of-01024.txt, the_pile_books3_minus_gutenberg-train-00055-of-00139.txt, 005-validation-train-00035-of-00039.txt, gutenberg_english-train-00005-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 882M, iter_num: 1076
+step 1100, loss 4.08, lr 0.000330, consume 893.57s
+step 1200, loss 3.95, lr 0.000360, consume 887.00s
+step 1300, loss 3.86, lr 0.000390, consume 885.21s
+processing 5: c4-train.00137-of-01024.txt, the_pile_books3_minus_gutenberg-train-00076-of-00139.txt, 005-validation-train-00032-of-00039.txt, gutenberg_english-train-00009-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 1058M, iter_num: 1346
+step 1400, loss 3.78, lr 0.000420, consume 889.80s
+step 1500, loss 3.71, lr 0.000450, consume 883.60s
+step 1600, loss 3.66, lr 0.000480, consume 885.32s
+processing 6: c4-train.00735-of-01024.txt, the_pile_books3_minus_gutenberg-train-00062-of-00139.txt, 005-validation-train-00004-of-00039.txt, gutenberg_english-train-00004-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 1235M, iter_num: 1615
+step 1700, loss 3.61, lr 0.000510, consume 887.31s
+step 1800, loss 3.56, lr 0.000540, consume 886.33s
+processing 7: c4-train.00503-of-01024.txt, the_pile_books3_minus_gutenberg-train-00030-of-00139.txt, 005-validation-train-00000-of-00039.txt, gutenberg_english-train-00016-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 1411M, iter_num: 1884
+step 1900, loss 3.53, lr 0.000570, consume 889.36s
+step 2000, loss 3.50, lr 0.000600, consume 885.74s
+step 2100, loss 3.46, lr 0.000600, consume 882.56s
+processing 8: c4-train.00991-of-01024.txt, the_pile_books3_minus_gutenberg-train-00029-of-00139.txt, 005-validation-train-00020-of-00039.txt, gutenberg_english-train-00001-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 1587M, iter_num: 2153
+step 2200, loss 3.43, lr 0.000600, consume 887.03s
+step 2300, loss 3.39, lr 0.000600, consume 886.27s
+step 2400, loss 3.36, lr 0.000600, consume 886.32s
+processing 9: c4-train.00155-of-01024.txt, the_pile_books3_minus_gutenberg-train-00138-of-00139.txt, 005-validation-train-00028-of-00039.txt, gutenberg_english-train-00026-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 1764M, iter_num: 2422
+step 2500, loss 3.34, lr 0.000600, consume 886.42s
+step 2600, loss 3.30, lr 0.000600, consume 889.09s
+processing 10: c4-train.00682-of-01024.txt, the_pile_books3_minus_gutenberg-train-00059-of-00139.txt, 005-validation-train-00015-of-00039.txt, gutenberg_english-train-00012-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 1940M, iter_num: 2692
+step 2700, loss 3.29, lr 0.000600, consume 889.13s
+step 2800, loss 3.26, lr 0.000600, consume 885.29s
+step 2900, loss 3.23, lr 0.000600, consume 880.28s
+processing 11: c4-train.00493-of-01024.txt, the_pile_books3_minus_gutenberg-train-00075-of-00139.txt, 005-validation-train-00010-of-00039.txt, gutenberg_english-train-00028-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 2117M, iter_num: 2961
+step 3000, loss 3.22, lr 0.000600, consume 882.77s
+step 3100, loss 3.19, lr 0.000600, consume 881.92s
+step 3200, loss 3.18, lr 0.000600, consume 882.71s
+processing 12: c4-train.00052-of-01024.txt, the_pile_books3_minus_gutenberg-train-00084-of-00139.txt, 005-validation-train-00029-of-00039.txt, gutenberg_english-train-00023-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 2293M, iter_num: 3230
+step 3300, loss 3.17, lr 0.000600, consume 889.75s
+step 3400, loss 3.14, lr 0.000600, consume 883.76s
+processing 13: c4-train.00444-of-01024.txt, the_pile_books3_minus_gutenberg-train-00095-of-00139.txt, 005-validation-train-00013-of-00039.txt, gutenberg_english-train-00022-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 2470M, iter_num: 3499
+step 3500, loss 3.14, lr 0.000600, consume 886.71s
+step 3600, loss 3.12, lr 0.000600, consume 884.27s
+step 3700, loss 3.10, lr 0.000600, consume 879.97s
+processing 14: c4-train.00396-of-01024.txt, the_pile_books3_minus_gutenberg-train-00035-of-00139.txt, 005-validation-train-00012-of-00039.txt, gutenberg_english-train-00000-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 2646M, iter_num: 3768
+step 3800, loss 3.10, lr 0.000600, consume 883.57s
+step 3900, loss 3.07, lr 0.000600, consume 882.25s
+step 4000, loss 3.07, lr 0.000600, consume 883.19s
+processing 15: c4-train.00419-of-01024.txt, the_pile_books3_minus_gutenberg-train-00058-of-00139.txt, 005-validation-train-00024-of-00039.txt, gutenberg_english-train-00020-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 2822M, iter_num: 4038
+step 4100, loss 3.06, lr 0.000600, consume 882.64s
+step 4200, loss 3.03, lr 0.000600, consume 884.69s
+step 4300, loss 3.03, lr 0.000600, consume 884.57s
+processing 16: c4-train.00704-of-01024.txt, the_pile_books3_minus_gutenberg-train-00074-of-00139.txt, 005-validation-train-00018-of-00039.txt, gutenberg_english-train-00025-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 2999M, iter_num: 4307
+step 4400, loss 3.02, lr 0.000600, consume 888.74s
+step 4500, loss 3.01, lr 0.000600, consume 881.98s
+processing 17: c4-train.00495-of-01024.txt, the_pile_books3_minus_gutenberg-train-00069-of-00139.txt, 005-validation-train-00036-of-00039.txt, gutenberg_english-train-00008-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 3175M, iter_num: 4576
+step 4600, loss 3.01, lr 0.000600, consume 887.24s
+step 4700, loss 2.99, lr 0.000600, consume 887.16s
+step 4800, loss 2.98, lr 0.000600, consume 884.29s
+processing 18: c4-train.00676-of-01024.txt, the_pile_books3_minus_gutenberg-train-00001-of-00139.txt, 005-validation-train-00002-of-00039.txt, gutenberg_english-train-00002-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 3352M, iter_num: 4845
+step 4900, loss 2.98, lr 0.000600, consume 891.95s
+step 5000, loss 2.96, lr 0.000600, consume 887.45s
+step 5100, loss 2.95, lr 0.000600, consume 886.68s
+processing 19: c4-train.00479-of-01024.txt, the_pile_books3_minus_gutenberg-train-00028-of-00139.txt, 005-validation-train-00022-of-00039.txt, gutenberg_english-train-00027-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 3528M, iter_num: 5114
+step 5200, loss 2.95, lr 0.000600, consume 892.15s
+step 5300, loss 2.93, lr 0.000600, consume 889.44s
+processing 20: c4-train.00928-of-01024.txt, the_pile_books3_minus_gutenberg-train-00027-of-00139.txt, 005-validation-train-00006-of-00039.txt, gutenberg_english-train-00006-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 3705M, iter_num: 5384
+step 5400, loss 2.94, lr 0.000600, consume 891.81s
+step 5500, loss 2.92, lr 0.000600, consume 888.44s
+step 5600, loss 2.91, lr 0.000600, consume 885.56s
+processing 21: c4-train.00454-of-01024.txt, the_pile_books3_minus_gutenberg-train-00113-of-00139.txt, 005-validation-train-00031-of-00039.txt, gutenberg_english-train-00017-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 3881M, iter_num: 5653
+step 5700, loss 2.91, lr 0.000600, consume 891.61s
+step 5800, loss 2.90, lr 0.000600, consume 889.73s
+step 5900, loss 2.89, lr 0.000599, consume 888.98s
+processing 22: c4-train.00655-of-01024.txt, the_pile_books3_minus_gutenberg-train-00093-of-00139.txt, 005-validation-train-00034-of-00039.txt, gutenberg_english-train-00011-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 4057M, iter_num: 5922
+step 6000, loss 2.90, lr 0.000599, consume 895.43s
+step 6100, loss 2.87, lr 0.000599, consume 892.52s
+processing 23: c4-train.00586-of-01024.txt, the_pile_books3_minus_gutenberg-train-00044-of-00139.txt, 005-validation-train-00021-of-00039.txt, gutenberg_english-train-00021-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 4234M, iter_num: 6191
+step 6200, loss 2.88, lr 0.000599, consume 894.03s
+step 6300, loss 2.87, lr 0.000599, consume 894.09s
+step 6400, loss 2.85, lr 0.000599, consume 890.75s
+processing 24: c4-train.00757-of-01024.txt, the_pile_books3_minus_gutenberg-train-00137-of-00139.txt, 005-validation-train-00017-of-00039.txt, gutenberg_english-train-00014-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 4410M, iter_num: 6460
+step 6500, loss 2.87, lr 0.000599, consume 895.03s
+step 6600, loss 2.85, lr 0.000599, consume 894.96s
+step 6700, loss 2.84, lr 0.000599, consume 896.38s
+processing 25: c4-train.00047-of-01024.txt, the_pile_books3_minus_gutenberg-train-00052-of-00139.txt, 005-validation-train-00003-of-00039.txt, gutenberg_english-train-00013-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 4587M, iter_num: 6730
+step 6800, loss 2.85, lr 0.000599, consume 894.76s
+step 6900, loss 2.82, lr 0.000599, consume 894.75s
+processing 26: c4-train.00703-of-01024.txt, the_pile_books3_minus_gutenberg-train-00080-of-00139.txt, 005-validation-train-00025-of-00039.txt, gutenberg_english-train-00007-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 4763M, iter_num: 6999
+step 7000, loss 2.84, lr 0.000599, consume 898.04s
+step 7100, loss 2.82, lr 0.000599, consume 890.88s
+step 7200, loss 2.81, lr 0.000599, consume 895.89s
+processing 27: c4-train.00652-of-01024.txt, the_pile_books3_minus_gutenberg-train-00087-of-00139.txt, 005-validation-train-00038-of-00039.txt, gutenberg_english-train-00015-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 4940M, iter_num: 7268
+step 7300, loss 2.82, lr 0.000599, consume 899.39s
+step 7400, loss 2.80, lr 0.000599, consume 894.27s
+step 7500, loss 2.80, lr 0.000599, consume 894.50s
+processing 28: c4-train.00787-of-01024.txt, the_pile_books3_minus_gutenberg-train-00130-of-00139.txt, 005-validation-train-00019-of-00039.txt, gutenberg_english-train-00019-of-00029.txt, origin: 355770, samples: 172299, accum_tokens: 5116M, iter_num: 7537
+step 7600, loss 2.81, lr 0.000599, consume 894.57s
+step 7700, loss 2.78, lr 0.000599, consume 895.32s
+step 7800, loss 2.79, lr 0.000599, consume 891.31s

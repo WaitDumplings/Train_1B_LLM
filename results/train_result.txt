@@ -1,0 +1,11 @@
+nohup: ignoring input
+
+
+
+Training on 1231 files...
+Tokenizer saved to ./tokenizer/tokenizer_raw.json
+Validating tokenizer from ./tokenizer/tokenizer.json
+Original: Let's train a 1 billion Large Lanugage Model!
+Tokenized: {'input_ids': [[7613, 265, 341, 4839, 479, 323, 479, 275, 5758, 12949, 5028, 661, 701, 12498, 259]], 'token_type_ids': [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], 'attention_mask': [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], 'overflow_to_sample_mapping': [0]}
+Original: This is the first step of training a tokenizer.
+Tokenized: {'input_ids': [[1445, 4903, 479, 636, 1047, 2286, 743, 328, 2797, 479, 323, 479, 342, 5388, 580, 4644, 272]], 'token_type_ids': [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]], 'attention_mask': [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]], 'overflow_to_sample_mapping': [0]}

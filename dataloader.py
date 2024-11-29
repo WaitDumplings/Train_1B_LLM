@@ -105,7 +105,6 @@ class GPTDataset(Dataset):
     def tokenize_with_packing(self, index, tokenizer, token_dump_path, is_batch=False):
         if index >= len(self.files):
             return
-        
         eos = tokenizer.encode('</s>')[0]
         IGNORE_INDEX = -100  # The default setting in CrossEntropyLoss
         data = []
@@ -113,11 +112,22 @@ class GPTDataset(Dataset):
         for file in self.files[index]:
             with open(file, 'r') as f:
                 dt = f.readlines()
-                dt = list(map(lambda x: json.loads(x.strip()), dt))
-                da = list(map(lambda x: f"{x['inputs']}\nResponse:", dt))
-                db = list(map(lambda x: x['targets'], dt))
-                data += da
-                target += db
+                da = ""
+                for i in range(0, len(dt)):
+                    if dt[i].startswith("Input: "):
+                        da = dt[i][7:].strip() + '\n' # Remove "Input: "
+                    elif dt[i].startswith("Response: "):
+                        if len(da) == 0:
+                            continue
+                        data.append(da)
+                        target.append(dt[i].strip())
+
+                        da = ""
+                    elif dt[i] == "_\n":
+                        continue
+                    else:
+                        da += dt[i].strip() + "\n"
+                        
         if is_batch:
             tokens = tokenizer(data)['input_ids']
             label_tokens = tokenizer(target)['input_ids']
@@ -128,7 +138,6 @@ class GPTDataset(Dataset):
                 tokens.extend(tokenizer(data[i:i+step])['input_ids'])
                 label_tokens.extend(tokenizer(target[i:i+step])['input_ids'])
         label_tokens = list(map(lambda x: x + [eos], label_tokens))
-
         inputs = list(map(lambda x: x[0] + x[1], zip(tokens, label_tokens)))
         labels = list(map(lambda x: [IGNORE_INDEX]*len(x[0]) + x[1], zip(tokens, label_tokens)))
         
