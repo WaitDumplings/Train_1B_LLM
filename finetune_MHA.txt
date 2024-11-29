@@ -1,0 +1,5 @@
+
+num decayed parameter tensors: 85, with 177,471,488 parameters
+num non-decayed parameter tensors: 25, with 25,600 parameters
+number of total parameters: 177.50M
+all train file nums: 1024
