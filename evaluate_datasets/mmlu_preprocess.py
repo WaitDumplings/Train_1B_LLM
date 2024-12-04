@@ -77,6 +77,30 @@ def Instruct_parquet_save_to_txt(root, source, save_path, column_name, partition
 
         all_data.extend(formatted_data.tolist())
 
+    # Shuffle and partition the data
+    knt = len(all_data)
+    block_num = knt // partition + 1
+
+    parts = np.arange(partition)[None, :]
+    parts = np.tile(parts, (block_num, 1)).reshape(-1)
+    np.random.shuffle(parts)
+    parts = parts[:knt]
+
+    print(f"Total entries: {knt}, Block number: {block_num}")
+
+    # Save data into partitioned files
+    for knt, text in enumerate(all_data):
+        if knt % 100000 == 0:
+            print(f"Processed {knt} entries")
+
+        # Determine the file for this entry
+        ti = parts[knt]
+        tpath = os.path.join(save_path, f"train.{ti:04d}-of-{partition:04d}.txt")
+
+        # Append the text to the file
+        with open(tpath, 'a', encoding='utf-8') as wf:
+            wf.write(text)
+            
     return all_data
 
 if __name__ == "__main__":

@@ -39,7 +39,6 @@ def tokenizer_processor(dataset, file_index, tokenizer_path, token_dump_path, ba
         dataset.tokenize_with_packing(i+1, tokenizer, token_dump_path, is_batch=False)
 
 def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, config, arch, dtype, model_root, pretrain_model_path, model_path, tokenizer_path, token_dump_path, data_root, data_dirs, need_prepare_first_dataset, flash=True):
-
     model_path = os.path.join(model_root, model_path)
     load_model = False
     if load_model:
@@ -107,6 +106,7 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, config
     accum_knt = 0
     loss_knt = 0
     loss_num = 0
+    Train_Loss = []
     st = time.time()
 
     for i, file in enumerate(train_dataset.files[trained_file_index+1:], trained_file_index+1):
@@ -158,7 +158,8 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, config
                 scaler.update()
                 optimizer.zero_grad(set_to_none=True)
                 iter_num += 1
-                if iter_num % 1 == 0:
+                Train_Loss.append(loss_knt/loss_num)
+                if iter_num % 100 == 0:
                     if is_master:
                         print(f"step {iter_num}, loss {loss_knt/loss_num:.2f}, lr {lr:.6f}, consume {time.time()-st:.2f}s")
                     st = time.time()
@@ -177,18 +178,16 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, config
                         }, model_path)
 
         if iter_num >= config.max_iters:
-            break            
+            break    
+
+    # Save to a text file
+    with open('finetune_loss.txt', 'w') as file:
+        for loss in Train_Loss:
+            file.write(f"{loss}\n")        
 
 if __name__ == "__main__":
-    # 使用RedPajama-Data-Instruct P3，回答的answer太短了，而且评估指标没有提升，放到pretrain里面
-    # 使用mmlu, STEM: 0.29, other (business, health, misc.): 0.31, social sciences: 0.30, humanities: 0.31
-    # 使用alpaca，样本量太少，评估指标没有提升, 但是问答的质量明显好了很多
-    # 使用NaturalQuestions/triviaQa，通识问答和阅读理解能力有所提升
-    # + CoT, MathInstruct, AlpacaCoT(基本是中文), CausalInstructions
-    # 只在mmlu train上finetune, mmlu eval 0.3, race 0.4.
-    # 在instruction为主的数据集finetune，mmlu eval 0.25, race 0.27，mmlu样本太少，且label太少，被稀释了
-    config = RetrieverConfig_medium_MQA()
-    finetune_config = RetrieverConfig_medium_finetune()
+    config = MHA_config()
+    finetune_config = finetune_config()
     revised_params = list(filter(lambda x: x[0][0] != '_', inspect.getmembers(finetune_config)))
     for rp, value in revised_params:
         setattr(config, rp, value)
@@ -199,24 +198,24 @@ if __name__ == "__main__":
     save_model = True
     flash = True
     distributed = True
-    # distributed = False
     arch = retriever
     dtype = "float16"
     model_root = "."
-    pretrain_model_path = "ckpt/LLM_MQA.pth.tar"
-    model_path = "ckpt/instruct_retriever_medium.pth.tar"
+    pretrain_model_path = "ckpt/LLM_GQA.pth.tar"
+    model_path = "ckpt/instruct_retriever_medium_gqa.pth.tar"
     model_backup_path = "ckpt/instruct_model_backup.pth.tar"
     tokenizer_path = "tokenizer/tokenizer_v2_600G.json"
     token_dump_path = "ckpt/instruct_tokens.pkl"
     data_root = "./finetune_datasets/data_txt/"
-    data_dirs = {  # total 24 part per dataset, each part size
+    
+    data_dirs = {
         "instruct_en_casuallm": [1, '\n\n\n'],  # 910M
         "instruct_en_CoT": [1, '\n\n\n'],  # 180M
-        "instruct_en_LAmini": [1, '\n\n\n'],  # 86M
-        "instruct_en_MATHn1": [1, '\n\n\n'],  # 56M
+        "instruct_en_LAmini": [1, '\n\n\n'],  # 9M
+        "instruct_en_MATHn1": [1, '\n\n\n'],  # 12M
         "instruct_en_NaturalQA": [1, '\n\n\n'],  # 8M
         "instruct_en_math_Instruct": [2, '\n\n\n'],  # 7M
-        "instruct_en_Python": [1, '\n\n\n']
+        "instruct_en_Python": [1, '\n\n\n']  #5M
     }
 
     if load_model: # backup origin model

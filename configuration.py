@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 # 174M
 @dataclass
-class RetrieverConfig_medium_MQA:
+class MQA_config:
     gpu_num = 4
     batch_size = 8
     gradient_accumulation_steps = 20
@@ -24,7 +24,7 @@ class RetrieverConfig_medium_MQA:
 
 #177M
 @dataclass
-class RetrieverConfig_medium_MHA:
+class MHA_config:
     gpu_num = 4
     batch_size = 8
     gradient_accumulation_steps = 20
@@ -46,7 +46,7 @@ class RetrieverConfig_medium_MHA:
 
 # 177M
 @dataclass
-class RetrieverConfig_medium_GQA:
+class GQA_config:
     gpu_num = 4
     batch_size = 8
     gradient_accumulation_steps = 20
@@ -67,10 +67,10 @@ class RetrieverConfig_medium_GQA:
     grad_clip = 1.0
 
 @dataclass
-class RetrieverConfig_medium_finetune:
+class finetune_config:
     batch_size = 4
-    gradient_accumulation_steps = 20
+    gradient_accumulation_steps = 10
     learning_rate = 1e-4
     min_lr = 1e-5
-    max_iters = 20000
+    max_iters = 18000
     lr_decay_iters = 20000

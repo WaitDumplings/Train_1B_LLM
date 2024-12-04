@@ -235,31 +235,7 @@ def main(gpu, gpu_num, distributed, load_model, save_model, load_dataset, eval, 
     plot_train_loss(train_loss)
 
 if __name__ == "__main__":
-    # 3200个样本, 4个1080ti并行46s，1个3090模型compile之后25s, flashAtt之后是23s
-    # model5M，loss会先降后增，转折点1w step左右
-    # model29M, step22w, loss在5w step之后基本持平，持续略微下降, 最终loss 3.49，没有先降后增的现象
-    # lr_decay_iters改成8W, loss 3.51
-    # float16 和 bfloat16 训练loss没有差别
-    # lr 3e-4, 8wstep, 训练到71500时, loss3.55, 比6e-4同期高了0.03
-    # batch_size=32, gradient_accumulation_steps 4->8, 收敛加速，但最终仍收敛于3.49
-    # scaled_dot_product_attention(is_causal=True) 72s -> 62s
-    # MLP -> silu + softgate, loss 3.51->3.44
-    # 改成进程预处理数据，PreTrainedTokenizerFast后面不能fork进程
-    # MLP intermediate_size 2->2.68, loss 3.44->3.40
-    # rotary position embedding，step 6W时 loss 3.44->3.40，预计下降0.04个点
-    # untied embedding, 无收益，step 2W时 loss 3.55->3.58
-    # qkv bias false->true, 无收益
-    # retriever_small, batch256, step16W, file_shuffle=True, loss3.29
-    # 模型选择题能力评估0.25，用mmlu fine_tune之后，mmlu_score=0.29，证明模型没问题，是缺这方面的语料，以及模型能力不行
-    # </s> attention mask, pretrain的时候好像无收益
-    # 不断重复以及数字概率高的问题，通过重复训练少量数据，过拟合验证，具有一字不差复述的能力, loss 0.08
-    # PaLM-540B 也有输出不断重复的问题 (Instruction SFT)
-    # 加入RedPajama-Data-1T的数据源(Books, ArXiv, Wikipedia, StackExchange), retriever_tv2_110M_78B_loss2.66
-    # stackexchange改成只要第一个答案, 去掉无答案的，去掉"Q:...A:..."，改成"...Response:..."
-    # + instruct P3, MetaMathQA, atlas_math
-    # + CoT, AlpacaCoT, CausalInstructions, CommonCrawl2023
-
-    config = RetrieverConfig_medium_GQA()
+    config = MQA_config()
     gpu_num = config.gpu_num
     need_prepare_first_dataset = True
     load_dataset = False
@@ -272,11 +248,11 @@ if __name__ == "__main__":
     arch = retriever
     dtype = "float16"
     model_root = "./ckpt"
-    model_path = "retriever_medium.pth.tar"
+    model_path = "MQA.pth.tar"
     model_backup_path = "ckpt/model_backup.pth.tar"
-    tokenizer_path = "./tokenizer/tokenizer_v2_600G.json"
+    tokenizer_path = "./tokenizer/tokenizer_new.json"
     token_dump_path = "./tokenizer/tokens.pkl"
-    data_root = "./datasets"
+    data_root = "./datasets/data_txt"
     data_dirs = { 
         "english_c4": [1, '\n\n\n'], 
         "english_books3": [1, '\n▁\n▁\n'],

@@ -126,13 +126,13 @@ def detect_en(x, gutenberg_list):
 
 
 if __name__ == "__main__":
-    root = "./"
+    root = "./data_parquet"
  
     # Process Wikipedia dataset
     convert_parquet_to_txt(
         root,
         "wikipedia",
-        "english_wikipedia",
+        "./data_txt/english_wikipedia",
         column_name="text",
         process_func=lambda x: x + "\r\n\r\n\r\n",
     )
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     convert_parquet_to_txt(
         root,
         "gutenberg_english",
-        "english_gutenberg",
+        "./data_txt/english_gutenberg",
         column_name="TEXT",
         process_func=lambda book: "\r\n\r\n\r\n".join(
             [
@@ -162,8 +162,8 @@ if __name__ == "__main__":
         gutenberg_list.update(
             books["METADATA"].apply(lambda x: json.loads(x)["title"]).tolist()
         )
-    filter_books3(root, "books3", "english_books3", gutenberg_list)
+    filter_books3(root, "books3", "./data_txt/english_books3", gutenberg_list)
 
     # Process C4 dataset
-    convert_c4_to_txt(root, "c4/en", "english_c4")
+    convert_c4_to_txt(root, "c4/en", "./data_txt/english_c4")
 

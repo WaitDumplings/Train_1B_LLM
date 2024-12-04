@@ -150,117 +150,7 @@ class Attention(nn.Module):
         output = torch.cat(outputs, dim=1).transpose(1, 2).contiguous()
         output = output.reshape(batch_size, seq_len, self.hidden_size)
         return self.o_proj(output)
-    
-class Attention2(nn.Module):
-    def __init__(self, config, attention_mask, position_ids, flash=True):
-        super(Attention, self).__init__()
-        self.flash=flash
-        self.hidden_size = config.hidden_size
-        self.kv_num_heads = config.kv_num_heads
-        self.query_num_heads = config.query_num_heads
-        self.head_dim = config.hidden_size // config.query_num_heads if config.query_num_heads >= config.kv_num_heads else config.hidden_size // config.kv_num_heads
-        self.max_position_embeddings = config.sequence_length
-        self.attention_mask = attention_mask
-        
-        self.q_proj = nn.Linear(config.hidden_size, self.query_num_heads * self.head_dim, bias=False)
-        self.k_proj = nn.Linear(config.hidden_size, self.kv_num_heads * self.head_dim, bias=False)
-        self.v_proj = nn.Linear(config.hidden_size, self.kv_num_heads * self.head_dim, bias=False)
-        self.o_proj = nn.Linear(config.hidden_size, config.hidden_size, bias=False)
-
-        self.position_ids = position_ids
-        self.rotary_emb = RotaryEmbedding(self.head_dim, max_position_embeddings=self.max_position_embeddings)
-
-    def forward(self, hidden_states, masks):
-        # 4, 1024, 512
-        batch_size, seq_len, _ = hidden_states.size()
-
-        query = self.q_proj(hidden_states).view(batch_size, seq_len, self.query_num_heads, self.head_dim).transpose(1, 2)
-        key = self.k_proj(hidden_states).view(batch_size, seq_len, self.kv_num_heads, self.head_dim).transpose(1, 2)
-        value = self.v_proj(hidden_states).view(batch_size, seq_len, self.kv_num_heads, self.head_dim).transpose(1, 2)
-        
-        position_ids = self.position_ids[:, :seq_len]
-        cos, sin = self.rotary_emb(value, seq_len=seq_len)
-        query, key = apply_rotary_pos_emb(query, key, cos, sin, position_ids)
-
-        group_num = self.query_num_heads // self.kv_num_heads
-        outputs = []
-
-        # MHA or MQA
-        if group_num > 0: 
-            if self.flash:
-                if masks is None:
-                    for i in range(group_num):
-                        head_start = i * self.kv_num_heads
-                        head_end = (i + 1) * self.kv_num_heads
-                        group_query = query[:, head_start:head_end,:, :]
-                        output = F.scaled_dot_product_attention(group_query, key, value, is_causal=True)
-                        outputs.append(output)
-                else:
-                    for i in range(group_num):
-                        head_start = i * self.kv_num_heads
-                        head_end = (i + 1) * self.kv_num_heads
-                        group_query = query[:, head_start:head_end,:, :]
-                        attn_mask = self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
-                        output = F.scaled_dot_product_attention(group_query, key, value, attn_mask=attn_mask)
-                        outputs.append(output)
-            else:
-                for i in range(group_num):
-                    head_start = i * self.kv_num_heads
-                    head_end = (i + 1) * self.kv_num_heads
-                    group_query = query[:, head_start:head_end,:, :]
-                    att = torch.matmul(group_query, key.transpose(2, 3)) / math.sqrt(self.head_dim)
-                    assert att.size() == (batch_size, self.num_heads, seq_len, seq_len), "Attention weights shape error"
-                    if masks is None:
-                        att = att + self.attention_mask[:batch_size, :, :seq_len, :seq_len]
-                    else:
-                        att = att + self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
-                    att = F.softmax(att, dim=-1)
-                    output = torch.matmul(att, value)
-                    outputs.append(output)
-        else:
-            # GQA
-            group_num = self.kv_num_heads // self.query_num_heads
-            if self.flash:
-                if masks is None:
-                    for i in range(group_num):
-                        head_start = i * self.query_num_heads
-                        head_end = (i + 1) * self.query_num_heads
-                        group_k = key[:, head_start:head_end,:, :]
-                        group_v = value[:, head_start:head_end,:, :]
-                        output = F.scaled_dot_product_attention(query, group_k, group_v, is_causal=True)
-                        outputs.append(output)
-                else:
-                    for i in range(group_num):
-                        head_start = i * self.query_num_heads
-                        head_end = (i + 1) * self.query_num_heads
-                        group_k = key[:, head_start:head_end,:, :]
-                        group_v = value[:, head_start:head_end,:, :]
-                        attn_mask = self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
-                        output = F.scaled_dot_product_attention(query, group_k, group_v, attn_mask=attn_mask)
-                        outputs.append(output)
-            else:
-                for i in range(group_num):
-                    head_start = i * self.query_num_heads
-                    head_end = (i + 1) * self.query_num_heads
-                    group_k = key[:, head_start:head_end,:, :]
-                    group_v = value[:, head_start:head_end,:, :]
-                    att = torch.matmul(query, group_k.transpose(2, 3)) / math.sqrt(self.head_dim)
-                    assert att.size() == (batch_size, self.query_num_heads, seq_len, seq_len), "Attention weights shape error"
-                    if masks is None:
-                        att = att + self.attention_mask[:batch_size, :, :seq_len, :seq_len]
-                    else:
-                        att = att + self.attention_mask[:batch_size, :, :seq_len, :seq_len] + masks.view(batch_size, 1, seq_len, seq_len)
-                    att = F.softmax(att, dim=-1)
-                    output = torch.matmul(att, group_v)
-                    outputs.append(output)
-
-        output = torch.cat(outputs, dim=1)
-        output = output.transpose(1, 2).contiguous()
-        output = output.reshape(batch_size, seq_len, self.hidden_size)
-
-        output = self.o_proj(output)
-        return output
-
+ 
 class DecoderLayer(nn.Module):
     def __init__(self, config, attention_mask, position_ids, flash=True):
         super().__init__()
@@ -349,10 +239,13 @@ class Retriever(nn.Module):
     
     @torch.no_grad()
     def chat(self, tokenizer, message, history, temperature=1.0, top_k=1, max_new_tokens=256):
+        
+        # This part can be used after training with chat dataset
         # prompt = "you are a helpful assistant\n"
         # for q, r in history:
         #     prompt += f"user: {q}\nassistant: {r}\n"
         # prompt += f"user: {message}\nassistant: "
+
         prompt = message + '\n' + 'Response:'
         print("prompt: ", prompt)
         input_ids = tokenizer.encode(prompt)
